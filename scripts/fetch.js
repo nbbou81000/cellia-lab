@@ -22,7 +22,7 @@ const SEEN_PATH  = path.join(DIST, 'seen.json');
 // ─── Réglages ────────────────────────────────────────────────────────────────
 const IS_DEV  = process.argv.includes('--dev') || process.env.DEV_MODE === 'true';
 const IS_DRY  = process.argv.includes('--dry');
-const MODEL   = process.env.MISTRAL_MODEL || 'mistral-small-2506';
+const MODEL   = process.env.MISTRAL_MODEL || 'mistral-small-latest';
 const MAX_ARTICLES      = IS_DEV ? 3 : parseInt(process.env.MAX_ARTICLES || '12', 10);
 const MAX_CALLS         = MAX_ARTICLES + 6;   // marge pour les articles jugés hors sujet
 const WINDOW_HOURS      = 72;                 // fenêtre normale
@@ -34,6 +34,16 @@ const SEEN_DAYS  = 60;                        // mémoire des articles déjà ex
 const MAX_STORED = 400;
 const PAUSE_MS   = 2500;                      // pause entre deux appels Mistral
 const MAX_INLINE_IMAGES = 3;                  // illustrations proposées à Mistral par article
+
+// $ par million de tokens — tarif public Mistral Small au 11/09/2026 (docs.mistral.ai/inference/pricing)
+// Si tu changes de modèle ou que Mistral ajuste ses prix, redéfinis ces deux variables
+// dans Settings → Secrets and variables → Actions → onglet Variables (pas Secrets, ce n'est pas sensible).
+const PRICE_IN  = parseFloat(process.env.MISTRAL_PRICE_INPUT_PER_1M)  || 0.15;
+const PRICE_OUT = parseFloat(process.env.MISTRAL_PRICE_OUTPUT_PER_1M) || 0.60;
+const costOf = (promptTok, compTok) => (promptTok / 1e6) * PRICE_IN + (compTok / 1e6) * PRICE_OUT;
+
+// Compteurs de tokens, alimentés par callMistral() à chaque réponse reçue
+const runStats = { calls: 0, retries429: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0 };
 
 const CATEGORIES = ['avancees', 'labos', 'risques', 'societe'];
 const TONES      = ['avancee', 'enjeu', 'alerte'];
@@ -469,10 +479,17 @@ async function callMistral(userPrompt) {
       }),
     }, 90000);
     if (res.status === 401 || res.status === 403) throw new FatalApiError(`clé Mistral refusée (HTTP ${res.status})`);
-    if (res.status === 429) { warn(`  Mistral 429 — pause ${attempt * 15}s`); await sleep(attempt * 15000); continue; }
+    if (res.status === 429) { runStats.retries429++; warn(`  Mistral 429 — pause ${attempt * 15}s`); await sleep(attempt * 15000); continue; }
     if (!res.ok) throw new Error(`HTTP ${res.status} ${(await res.text()).slice(0, 160)}`);
-    const data = await res.json();
-    return data.choices?.[0]?.message?.content || '';
+    const data  = await res.json();
+    const usage = data.usage || null;   // { prompt_tokens, completion_tokens, total_tokens } — compte exact renvoyé par Mistral
+    if (usage) {
+      runStats.calls++;
+      runStats.promptTokens     += usage.prompt_tokens     || 0;
+      runStats.completionTokens += usage.completion_tokens || 0;
+      runStats.totalTokens      += usage.total_tokens || ((usage.prompt_tokens || 0) + (usage.completion_tokens || 0));
+    }
+    return { content: data.choices?.[0]?.message?.content || '', usage };
   }
   throw new Error('Mistral saturé (429 répétés)');
 }
@@ -678,7 +695,7 @@ async function main() {
 
   // 4. Texte source + réécriture
   const fresh = [];
-  let calls = 0;
+  let calls = 0, rejected = 0;
   for (const cand of ordered) {
     if (fresh.length >= MAX_ARTICLES || calls >= MAX_CALLS) break;
     const { text, images } = await fetchSourceText(cand);
@@ -690,13 +707,15 @@ async function main() {
     }
     info(`${cand.source} — ${cand.title.slice(0, 70)} (${words} mots${images.length ? `, ${images.length} illustration${images.length > 1 ? 's' : ''}` : ''})`);
 
-    let result;
+    let result, usage = null;
     if (IS_DRY) {
       result = dryArticle(cand, text, images);
     } else {
       calls++;
       try {
-        result = buildArticle(cand, parseJSON(await callMistral(buildUserPrompt(cand, text, images))), images);
+        const r = await callMistral(buildUserPrompt(cand, text, images));
+        usage  = r.usage;
+        result = buildArticle(cand, parseJSON(r.content), images);
       } catch (e) {
         if (e instanceof FatalApiError) { err(e.message); process.exit(1); }
         warn(`  échec Mistral : ${e.message}`);
@@ -704,14 +723,16 @@ async function main() {
       }
       await sleep(PAUSE_MS);
     }
+    const tk = usage ? ` · ${usage.total_tokens ?? '?'} tokens` : '';
 
     if (result.article) {
       fresh.push(result.article);
       seen[cand.id] = new Date().toISOString();
       const nImg = result.article.images?.length || 0;
-      ok(`  ${result.article.tone.padEnd(7)} ${result.article.category.padEnd(8)} ${nImg ? `🖼 ${nImg} ` : ''}${result.article.title.slice(0, 60)}`);
+      ok(`  ${result.article.tone.padEnd(7)} ${result.article.category.padEnd(8)} ${nImg ? `🖼 ${nImg} ` : ''}${result.article.title.slice(0, 60)}${tk}`);
     } else {
-      warn(`  écarté : ${result.reject}`);
+      rejected++;
+      warn(`  écarté : ${result.reject}${tk}`);
       if (!result.retry) seen[cand.id] = new Date().toISOString();
     }
   }
@@ -737,10 +758,40 @@ async function main() {
   const seenPruned = Object.fromEntries(Object.entries(seen).filter(([, d]) => new Date(d).getTime() > seenCutoff));
   await fs.writeFile(SEEN_PATH, JSON.stringify(seenPruned), 'utf-8');
 
+  // Historique des tokens : run courant + cumul depuis toujours, gardé compact
+  // (le détail par article reste dans ce journal, pas dans le fichier publié)
+  const usagePath = path.join(DIST, 'usage.json');
+  const usageData = await readJSON(usagePath, { history: [], lifetime: null });
+  const runCost   = costOf(runStats.promptTokens, runStats.completionTokens);
+  const entry = {
+    date: generated_at, model: MODEL,
+    articles_published: fresh.length, articles_rejected: rejected,
+    calls: runStats.calls, retries429: runStats.retries429,
+    promptTokens: runStats.promptTokens, completionTokens: runStats.completionTokens, totalTokens: runStats.totalTokens,
+    estCostUSD: Number(runCost.toFixed(4)),
+  };
+  const USAGE_HISTORY_MAX = 120;   // ~2 mois à 2 runs/jour
+  const history = [entry, ...usageData.history].slice(0, USAGE_HISTORY_MAX);
+  const life = usageData.lifetime || { since: generated_at, runs: 0, calls: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, estCostUSD: 0 };
+  life.runs++; life.calls += runStats.calls;
+  life.promptTokens += runStats.promptTokens; life.completionTokens += runStats.completionTokens; life.totalTokens += runStats.totalTokens;
+  life.estCostUSD = Number((life.estCostUSD + runCost).toFixed(4));
+  await fs.writeFile(usagePath, JSON.stringify({
+    history, lifetime: life,
+    pricing: { model: MODEL, inputPer1M: PRICE_IN, outputPer1M: PRICE_OUT },
+  }), 'utf-8');
+
   console.log(`\n${c.bold}━━━ Terminé ━━━${c.reset}`);
-  ok(`${fresh.length} nouveaux · ${all.length} au total · ${calls} appels Mistral`);
+  ok(`${fresh.length} nouveaux · ${rejected} écartés · ${all.length} au total · ${runStats.calls} appels Mistral (${runStats.retries429} attente(s) 429)`);
   const tally = k => fresh.filter(a => a.tone === k).length;
   ok(`Tonalité du run : ${tally('avancee')} avancée · ${tally('enjeu')} enjeu · ${tally('alerte')} alerte`);
+  ok(`Tokens : ${runStats.promptTokens.toLocaleString('fr-FR')} entrée + ${runStats.completionTokens.toLocaleString('fr-FR')} sortie = ${runStats.totalTokens.toLocaleString('fr-FR')} total`);
+  ok(`Coût estimé du run : ${runCost.toFixed(4)} $ · cumul depuis le début : ${life.estCostUSD.toFixed(2)} $ sur ${life.runs} runs`);
 }
 
-main().catch(e => { err(`Erreur fatale : ${e.message}`); console.error(e); process.exit(1); });
+// Node garde parfois le process vivant après la fin de main() à cause des connexions
+// HTTP maintenues ouvertes (fetch natif). On force la sortie pour ne pas dépendre
+// du timeout du job GitHub Actions pour terminer proprement.
+main()
+  .then(() => process.exit(0))
+  .catch(e => { err(`Erreur fatale : ${e.message}`); console.error(e); process.exit(1); });
