@@ -1,0 +1,89 @@
+name: CelliA Lab — Veille IA
+
+on:
+  schedule:
+    - cron: '30 5 * * *'    # 7h30 Paris l'été, 6h30 l'hiver
+    - cron: '30 16 * * *'   # 18h30 Paris l'été, 17h30 l'hiver
+  workflow_dispatch:
+    inputs:
+      dev_mode:
+        description: 'Mode test (3 articles seulement)'
+        required: false
+        default: false
+        type: boolean
+
+# Deux veilles ne tournent jamais en même temps
+concurrency:
+  group: veille
+  cancel-in-progress: false
+
+jobs:
+  veille:
+    name: RSS → Mistral → GitHub Pages
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    env:
+      NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+
+    steps:
+      - name: Récupération du dépôt
+        uses: actions/checkout@v4
+
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Dépendances
+        working-directory: scripts
+        run: npm install --no-audit --no-fund
+
+      - name: Collecte et réécriture
+        working-directory: scripts
+        env:
+          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+          DEV_MODE: ${{ github.event.inputs.dev_mode || 'false' }}
+        run: node fetch.js
+
+      - name: Pages de partage
+        working-directory: scripts
+        run: node gen-og.js
+
+      - name: Publication
+        run: |
+          git config user.name  "CelliA Lab Bot"
+          git config user.email "cellia-lab-bot@noreply.github.com"
+          git add dist/
+          if git diff --staged --quiet; then
+            echo "Rien de nouveau à publier"
+            exit 0
+          fi
+          NEW=$(node -e "console.log(require('./dist/articles.json').new_count || 0)")
+          git commit -m "veille: +$NEW articles — $(date -u '+%Y-%m-%d %H:%M') UTC"
+          git pull --rebase --autostash
+          git push
+
+      - name: Notification (facultative)
+        if: success() && env.NTFY_TOPIC != ''
+        run: |
+          NEW=$(node -e "console.log(require('./dist/articles.json').new_count || 0)")
+          curl -s -H "Title: CelliA Lab" -H "Tags: microscope" \
+            -d "$NEW nouveaux articles de veille IA" "https://ntfy.sh/$NTFY_TOPIC" || true
+
+      - name: Résumé
+        if: always()
+        run: |
+          echo "## CelliA Lab" >> $GITHUB_STEP_SUMMARY
+          if [ -f dist/articles.json ]; then
+            node -e "
+              const d = require('./dist/articles.json');
+              const t = k => d.articles.filter(a => a.tone === k).length;
+              console.log('✅ **' + (d.new_count || 0) + ' nouveaux** · ' + d.count + ' au total');
+              console.log('');
+              console.log('Tonalité sur le site : 🟢 ' + t('avancee') + ' · 🟠 ' + t('enjeu') + ' · 🔴 ' + t('alerte'));
+            " >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Aucun fichier produit — voir l'étape « Collecte et réécriture »" >> $GITHUB_STEP_SUMMARY
+          fi

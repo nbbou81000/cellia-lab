@@ -1,0 +1,47 @@
+name: 🗑️ Supprimer un article
+
+on:
+  workflow_dispatch:
+    inputs:
+      article_id:
+        description: "ID de l'article à supprimer"
+        required: true
+        type: string
+
+concurrency:
+  group: veille
+  cancel-in-progress: false
+
+jobs:
+  delete:
+    name: Suppression
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Retirer l'article des fichiers JSON
+        working-directory: scripts
+        env:
+          ARTICLE_ID: ${{ github.event.inputs.article_id }}
+        run: node delete-article.js
+
+      - name: Mettre à jour les pages de partage
+        working-directory: scripts
+        run: node gen-og.js
+
+      - name: Publication
+        run: |
+          git config user.name  "CelliA Lab Modération"
+          git config user.email "cellia-lab-bot@noreply.github.com"
+          git add dist/
+          git diff --staged --quiet && echo "Rien à publier" && exit 0
+          git commit -m "mod: suppression de l'article ${{ github.event.inputs.article_id }}"
+          git pull --rebase --autostash
+          git push
