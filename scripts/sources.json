@@ -1,0 +1,35 @@
+[
+  { "url": "https://www.nature.com/subjects/machine-learning.rss", "source_name": "Nature", "category": "avancees", "kind": "recherche", "lang": "en", "max_per_run": 2 },
+  { "url": "https://www.nature.com/natmachintell.rss", "source_name": "Nature Machine Intelligence", "category": "avancees", "kind": "recherche", "lang": "en", "max_per_run": 1 },
+  { "url": "https://spectrum.ieee.org/feeds/topic/artificial-intelligence.rss", "source_name": "IEEE Spectrum", "category": "avancees", "kind": "media", "lang": "en", "max_per_run": 2 },
+  { "url": "https://www.technologyreview.com/topic/artificial-intelligence/feed", "source_name": "MIT Technology Review", "category": "avancees", "kind": "media", "lang": "en", "max_per_run": 2 },
+  { "url": "https://news.mit.edu/rss/topic/artificial-intelligence2", "source_name": "MIT News", "category": "avancees", "kind": "recherche", "lang": "en", "max_per_run": 1 },
+  { "url": "https://www.quantamagazine.org/computer-science/feed/", "source_name": "Quanta Magazine", "category": "avancees", "kind": "media", "lang": "en", "ai_filter": true, "max_per_run": 1 },
+  { "url": "https://epochai.substack.com/feed", "source_name": "Epoch AI", "category": "avancees", "kind": "institut", "lang": "en", "max_per_run": 1 },
+  { "url": "https://importai.substack.com/feed", "source_name": "Import AI", "category": "avancees", "kind": "media", "lang": "en", "max_per_run": 1 },
+  { "url": "https://www.understandingai.org/feed", "source_name": "Understanding AI", "category": "avancees", "kind": "media", "lang": "en", "max_per_run": 1 },
+  { "url": "https://simonwillison.net/atom/everything/", "source_name": "Simon Willison", "category": "avancees", "kind": "media", "lang": "en", "ai_filter": true, "max_per_run": 1 },
+  { "url": "https://theconversation.com/global/topics/artificial-intelligence-ai-90/articles.atom", "source_name": "The Conversation", "category": "societe", "kind": "recherche", "lang": "en", "max_per_run": 2 },
+
+  { "url": "https://deepmind.google/blog/rss.xml", "source_name": "Google DeepMind", "category": "labos", "kind": "labo", "lang": "en", "max_per_run": 2 },
+  { "url": "https://research.google/blog/rss/", "source_name": "Google Research", "category": "labos", "kind": "labo", "lang": "en", "ai_filter": true, "max_per_run": 1 },
+  { "url": "https://openai.com/news/rss.xml", "source_name": "OpenAI", "category": "labos", "kind": "labo", "lang": "en", "max_per_run": 2 },
+  { "url": "https://www.anthropic.com/news", "type": "html", "link_pattern": "/news/[a-z0-9-]+", "base": "https://www.anthropic.com", "source_name": "Anthropic", "category": "labos", "kind": "labo", "lang": "en", "max_per_run": 2 },
+  { "url": "https://mistral.ai/news/rss", "source_name": "Mistral AI", "category": "labos", "kind": "labo", "lang": "en", "max_per_run": 1 },
+  { "url": "https://huggingface.co/blog/feed.xml", "source_name": "Hugging Face", "category": "labos", "kind": "labo", "lang": "en", "max_per_run": 1 },
+
+  { "url": "https://metr.org/feed.xml", "source_name": "METR", "category": "risques", "kind": "institut", "lang": "en", "exclude_url": "/zh-|/ja/|/ko/", "max_per_run": 1 },
+  { "url": "https://newsletter.safe.ai/feed", "source_name": "Center for AI Safety", "category": "risques", "kind": "institut", "lang": "en", "max_per_run": 1 },
+  { "url": "https://www.alignmentforum.org/feed.xml", "source_name": "AI Alignment Forum", "category": "risques", "kind": "recherche", "lang": "en", "max_per_run": 1 },
+  { "url": "https://incidentdatabase.ai/rss.xml", "source_name": "AI Incident Database", "category": "risques", "kind": "institut", "lang": "en", "max_per_run": 2 },
+  { "url": "https://futureoflife.org/feed/", "source_name": "Future of Life Institute", "category": "risques", "kind": "institut", "lang": "en", "max_per_run": 1 },
+  { "url": "https://garymarcus.substack.com/feed", "source_name": "Gary Marcus", "category": "risques", "kind": "tribune", "lang": "en", "max_per_run": 1 },
+
+  { "url": "https://ainowinstitute.org/feed", "source_name": "AI Now Institute", "category": "societe", "kind": "institut", "lang": "en", "max_per_run": 1 },
+  { "url": "https://algorithmwatch.org/en/feed/", "source_name": "AlgorithmWatch", "category": "societe", "kind": "institut", "lang": "en", "max_per_run": 1 },
+  { "url": "https://www.eff.org/rss/updates.xml", "source_name": "EFF", "category": "societe", "kind": "institut", "lang": "en", "ai_filter": true, "max_per_run": 1 },
+  { "url": "https://www.cnil.fr/fr/rss.xml", "source_name": "CNIL", "category": "societe", "kind": "institut", "lang": "fr", "ai_filter": true, "max_per_run": 1 },
+  { "url": "https://lejournal.cnrs.fr/rss", "source_name": "CNRS Le Journal", "category": "avancees", "kind": "recherche", "lang": "fr", "ai_filter": true, "max_per_run": 1 },
+  { "url": "https://theconversation.com/fr/articles.atom", "source_name": "The Conversation France", "category": "societe", "kind": "recherche", "lang": "fr", "ai_filter": true, "max_per_run": 1 },
+  { "url": "https://www.404media.co/rss/", "source_name": "404 Media", "category": "societe", "kind": "media", "lang": "en", "ai_filter": true, "max_per_run": 1 }
+]
