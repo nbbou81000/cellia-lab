@@ -1379,7 +1379,7 @@
     html.theme-quantum .card { background:var(--glass-card);border:1px solid var(--border);border-radius:10px;box-shadow:none;transition:border-color 300ms ease;overflow:hidden; }
     html.theme-quantum .card:hover { border-color:rgba(62,207,142,.45);transform:none;box-shadow:none; }
     html.theme-quantum.light .card:hover { border-color:rgba(5,150,105,.4);box-shadow:0 1px 3px rgba(0,0,0,.04); }
-    html.theme-quantum .card-img { transition:transform 500ms ease; }
+    html.theme-quantum .card-img { transition:transform 500ms ease; will-change:transform; backface-visibility:hidden; }
     html.theme-quantum .card:hover .card-img { transform:scale(1.03); }
     html.theme-quantum .card-body { padding:14px 16px;border-top:1px solid var(--border-soft); }
     html.theme-quantum .card-title { font-family:var(--font-ui);font-size:13.5px;font-weight:700;line-height:1.35;letter-spacing:-0.025em;color:var(--text-hi); }
@@ -2444,7 +2444,7 @@
 
           const since = new Date(l.since).toLocaleDateString('fr-FR', { day:'numeric', month:'short', year:'numeric' });
           document.getElementById('adm-usage-note').textContent =
-            `Modèle ${r.model} · ${r.calls} appel(s) réussis${r.retries429 ? `, ${r.retries429} attente(s) 429` : ''} · tarif ${d.pricing.inputPer1M} $ / ${d.pricing.cachedPer1M} $ (cache) / ${d.pricing.outputPer1M} $ par million · cumul depuis le ${since}`;
+            `Modèle ${r.model} · ${r.calls} appel(s) réussis${r.retries429 ? `, ${r.retries429} attente(s) 429` : ''} · tarif ${d.pricing.inputPer1M ?? '0.15'} $ / ${d.pricing.cachedPer1M ?? '0.015'} $ (cache) / ${d.pricing.outputPer1M ?? '0.6'} $ par million · cumul depuis le ${since}`;
           renderBaseline(d.baseline);
           box.hidden = false;
         } catch { /* le panneau reste masqué si le fichier n'existe pas encore */ }
