@@ -1468,6 +1468,19 @@
     html.theme-quantum .sources-grid h4 { font-family:var(--font-mono); }
     @media (max-width: 800px) { .sources-panel { padding:0 12px; } }
 
+    /* Panneau admin : stats de tokens Mistral */
+    .adm-usage { margin:14px 16px; padding:14px; border:1px solid #27272a; border-radius:10px; background:rgba(255,255,255,.02); }
+    .adm-usage-title { font-size:12px; font-weight:700; color:#e5e5e5; margin-bottom:10px; }
+    .adm-usage-grid { display:flex; flex-direction:column; gap:2px; }
+    .adm-usage-cell { display:grid; grid-template-columns:1fr 1fr 1fr; align-items:baseline; padding:3px 0; }
+    .adm-usage-cell .lbl { font-size:10.5px; color:#71717a; }
+    .adm-usage-cell .run,
+    .adm-usage-cell .life { font-size:12px; color:#d4d4d8; text-align:right; font-variant-numeric:tabular-nums; }
+    .adm-usage-cell.adm-usage-head .run,
+    .adm-usage-cell.adm-usage-head .life { font-size:9.5px; color:#52525b; font-weight:600; text-transform:uppercase; letter-spacing:.03em; }
+    .adm-usage-spark { width:100%; height:32px; margin-top:10px; display:block; }
+    .adm-usage-note { margin-top:8px; font-size:9.5px; line-height:1.5; color:#52525b; }
+
     /* Navbar mobile : logo réduit, catégories défilables, boutons toujours visibles */
     @media (max-width: 560px) {
       .nav-logo svg { width:120px; height:auto; }
@@ -1714,6 +1727,12 @@
       <a class="footer-chip" href="https://meteo-atlas.netlify.app/" target="_blank" rel="noopener noreferrer">
         🌤 MétéoAtlas
       </a>
+
+      <span class="footer-sep">·</span>
+
+      <a class="footer-chip" href="stats.html">
+        📊 Stats
+      </a>
     </div>
 
     <!-- Ligne 2 : description avec vague -->
@@ -1745,6 +1764,17 @@
       <div id="adm-status" class="adm-status"></div>
       <div class="adm-token-info" id="adm-token-info">Chargement des sources…</div>
     </div>
+
+    <section class="adm-usage" id="adm-usage" hidden>
+      <div class="adm-usage-title" style="display:flex;justify-content:space-between;align-items:center">
+        <span>📊 Tokens Mistral</span>
+        <a href="stats.html" style="font-size:10px;font-weight:600;color:#3ECF8E;text-decoration:none">Page complète →</a>
+      </div>
+      <div class="adm-usage-grid" id="adm-usage-grid"></div>
+      <svg class="adm-usage-spark" id="adm-usage-spark" viewBox="0 0 300 46" preserveAspectRatio="none" aria-hidden="true"></svg>
+      <div class="adm-usage-note" id="adm-usage-note"></div>
+    </section>
+
     <div id="adm-sources-container"></div>
 
     <!-- Formulaire ajout source -->
@@ -2362,9 +2392,44 @@
         adminPanel.classList.toggle('open');
         if (adminPanel.classList.contains('open') && !window._admSourcesLoaded) {
           loadAdminSources();
+          loadAdminUsage();
         }
       });
       adClose?.addEventListener('click', () => adminPanel.classList.remove('open'));
+
+      // ── Statistiques de tokens (dist/usage.json, écrit par chaque veille) ────
+      async function loadAdminUsage() {
+        const box = document.getElementById('adm-usage');
+        try {
+          const res = await fetch('dist/usage.json?t=' + Date.now());
+          if (!res.ok) return;
+          const d = await res.json();
+          const r = d.history?.[0], l = d.lifetime;
+          if (!r || !l) return;
+          const fr = n => (n ?? 0).toLocaleString('fr-FR');
+          const cell = (label, run, life) => `<div class="adm-usage-cell"><span class="lbl">${label}</span><span class="run">${run}</span><span class="life">${life}</span></div>`;
+          document.getElementById('adm-usage-grid').innerHTML =
+            `<div class="adm-usage-cell adm-usage-head"><span class="lbl"></span><span class="run">Dernier run</span><span class="life">Cumul (${l.runs} runs)</span></div>` +
+            cell('Entrée',  fr(r.promptTokens),     fr(l.promptTokens)) +
+            cell('Sortie',  fr(r.completionTokens), fr(l.completionTokens)) +
+            cell('Total',   fr(r.totalTokens),      fr(l.totalTokens)) +
+            cell('Coût est.', (r.estCostUSD ?? 0).toFixed(4) + ' $', (l.estCostUSD ?? 0).toFixed(2) + ' $');
+
+          // Mini graphique : tokens totaux des derniers runs (le plus récent à droite)
+          const hist = [...d.history].slice(0, 20).reverse();
+          const max  = Math.max(1, ...hist.map(h => h.totalTokens));
+          const w = 300, h = 46, step = hist.length > 1 ? w / (hist.length - 1) : 0;
+          const pts = hist.map((e, i) => `${(i * step).toFixed(1)},${(h - (e.totalTokens / max) * (h - 4) - 2).toFixed(1)}`);
+          document.getElementById('adm-usage-spark').innerHTML = hist.length > 1
+            ? `<polyline points="${pts.join(' ')}" fill="none" stroke="#3ECF8E" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>`
+            : '';
+
+          const since = new Date(l.since).toLocaleDateString('fr-FR', { day:'numeric', month:'short', year:'numeric' });
+          document.getElementById('adm-usage-note').textContent =
+            `Modèle ${r.model} · ${r.calls} appel(s) réussis${r.retries429 ? `, ${r.retries429} attente(s) 429` : ''} · tarif ${d.pricing.inputPer1M} $ / ${d.pricing.outputPer1M} $ par million (entrée/sortie) · cumul depuis le ${since}`;
+          box.hidden = false;
+        } catch { /* le panneau reste masqué si le fichier n'existe pas encore */ }
+      }
 
       // ── Charger sources.json depuis GitHub API ──────────────────────────
       let _sourcesData    = [];  // tableau des sources
