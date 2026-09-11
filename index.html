@@ -1480,6 +1480,14 @@
     .adm-usage-cell.adm-usage-head .life { font-size:9.5px; color:#52525b; font-weight:600; text-transform:uppercase; letter-spacing:.03em; }
     .adm-usage-spark { width:100%; height:32px; margin-top:10px; display:block; }
     .adm-usage-note { margin-top:8px; font-size:9.5px; line-height:1.5; color:#52525b; }
+    .adm-baseline { margin-top:14px; padding-top:12px; border-top:1px solid #27272a; }
+    .adm-baseline-label { font-size:10px; font-weight:600; color:#71717a; text-transform:uppercase; letter-spacing:.03em; margin-bottom:6px; }
+    .adm-baseline-current { font-size:12.5px; color:#d4d4d8; margin-bottom:8px; }
+    .adm-baseline-current b { color:#3ECF8E; }
+    .adm-baseline-form { display:flex; gap:8px; }
+    .adm-baseline-form input { flex:1; min-width:0; background:#0a0a0a; border:1px solid #27272a; border-radius:6px; color:#e5e5e5; padding:8px 10px; font-size:13px; }
+    .adm-baseline-form input:focus { outline:none; border-color:#3ECF8E; }
+    .adm-baseline-form button { flex-shrink:0; padding:8px 14px; font-size:12px; }
 
     /* Navbar mobile : logo réduit, catégories défilables, boutons toujours visibles */
     @media (max-width: 560px) {
@@ -1773,6 +1781,15 @@
       <div class="adm-usage-grid" id="adm-usage-grid"></div>
       <svg class="adm-usage-spark" id="adm-usage-spark" viewBox="0 0 300 46" preserveAspectRatio="none" aria-hidden="true"></svg>
       <div class="adm-usage-note" id="adm-usage-note"></div>
+
+      <div class="adm-baseline">
+        <div class="adm-baseline-label">Relevé manuel (mistral.ai/usage — CelliA + CelliA Lab combinés)</div>
+        <div class="adm-baseline-current" id="adm-baseline-current">Aucun relevé enregistré.</div>
+        <div class="adm-baseline-form">
+          <input type="number" step="0.01" min="0" inputmode="decimal" id="adm-baseline-amount" placeholder="Montant € constaté">
+          <button class="adm-btn" id="adm-baseline-save">Enregistrer</button>
+        </div>
+      </div>
     </section>
 
     <div id="adm-sources-container"></div>
@@ -2411,6 +2428,7 @@
           document.getElementById('adm-usage-grid').innerHTML =
             `<div class="adm-usage-cell adm-usage-head"><span class="lbl"></span><span class="run">Dernier run</span><span class="life">Cumul (${l.runs} runs)</span></div>` +
             cell('Entrée',  fr(r.promptTokens),     fr(l.promptTokens)) +
+            cell('dont cache', fr(r.cachedTokens),  fr(l.cachedTokens)) +
             cell('Sortie',  fr(r.completionTokens), fr(l.completionTokens)) +
             cell('Total',   fr(r.totalTokens),      fr(l.totalTokens)) +
             cell('Coût est.', (r.estCostUSD ?? 0).toFixed(4) + ' $', (l.estCostUSD ?? 0).toFixed(2) + ' $');
@@ -2426,10 +2444,73 @@
 
           const since = new Date(l.since).toLocaleDateString('fr-FR', { day:'numeric', month:'short', year:'numeric' });
           document.getElementById('adm-usage-note').textContent =
-            `Modèle ${r.model} · ${r.calls} appel(s) réussis${r.retries429 ? `, ${r.retries429} attente(s) 429` : ''} · tarif ${d.pricing.inputPer1M} $ / ${d.pricing.outputPer1M} $ par million (entrée/sortie) · cumul depuis le ${since}`;
+            `Modèle ${r.model} · ${r.calls} appel(s) réussis${r.retries429 ? `, ${r.retries429} attente(s) 429` : ''} · tarif ${d.pricing.inputPer1M} $ / ${d.pricing.cachedPer1M} $ (cache) / ${d.pricing.outputPer1M} $ par million · cumul depuis le ${since}`;
+          renderBaseline(d.baseline);
           box.hidden = false;
         } catch { /* le panneau reste masqué si le fichier n'existe pas encore */ }
       }
+
+      function renderBaseline(baseline) {
+        const el = document.getElementById('adm-baseline-current');
+        if (!el) return;
+        if (baseline?.amountEUR != null) {
+          const d = new Date(baseline.date).toLocaleString('fr-FR', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+          el.innerHTML = `<b>${baseline.amountEUR.toFixed(2)} €</b> relevés le ${d}`;
+        } else {
+          el.textContent = 'Aucun relevé enregistré.';
+        }
+      }
+
+      document.getElementById('adm-baseline-save')?.addEventListener('click', async () => {
+        const input  = document.getElementById('adm-baseline-amount');
+        const amount = parseFloat(input?.value);
+        if (!Number.isFinite(amount) || amount < 0) { adShowStatus('Montant invalide', 'err'); return; }
+        const token = getAdminToken();
+        if (!token) return;
+        const btn = document.getElementById('adm-baseline-save');
+        btn.disabled = true; btn.textContent = '⏳';
+        adShowStatus('Enregistrement du relevé…', 'inf');
+        try {
+          const getRes = await fetch(
+            `https://api.github.com/repos/${REPO}/contents/dist/usage.json`,
+            { headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' } }
+          );
+          if (getRes.status === 401 || getRes.status === 403) {
+            sessionStorage.removeItem('cellia-lab-admin-token');
+            adShowStatus('Token invalide ou droits insuffisants', 'err');
+            return;
+          }
+          if (!getRes.ok) { adShowStatus('Lecture de usage.json impossible (' + getRes.status + ')', 'err'); return; }
+          const getData = await getRes.json();
+          const current = JSON.parse(decodeURIComponent(escape(atob(getData.content.replace(/\s/g, '')))));
+          const baseline = { date: new Date().toISOString(), amountEUR: amount, note: 'Relevé manuel — mistral.ai/usage' };
+          const updated  = { ...current, baseline };
+          const newContent = btoa(unescape(encodeURIComponent(JSON.stringify(updated))));
+          const putRes = await fetch(
+            `https://api.github.com/repos/${REPO}/contents/dist/usage.json`,
+            {
+              method: 'PUT',
+              headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+              body: JSON.stringify({ message: 'admin: relevé manuel de coût Mistral', content: newContent, sha: getData.sha }),
+            }
+          );
+          if (putRes.status === 200) {
+            adShowStatus('✅ Relevé enregistré', 'ok');
+            renderBaseline(baseline);
+            if (input) input.value = '';
+          } else if (putRes.status === 401 || putRes.status === 403) {
+            sessionStorage.removeItem('cellia-lab-admin-token');
+            adShowStatus('Token invalide ou droits insuffisants', 'err');
+          } else {
+            const body = await putRes.text();
+            adShowStatus('Erreur ' + putRes.status + ' : ' + body.slice(0, 100), 'err');
+          }
+        } catch (e) {
+          adShowStatus('Erreur réseau : ' + e.message, 'err');
+        } finally {
+          btn.disabled = false; btn.textContent = 'Enregistrer';
+        }
+      });
 
       // ── Charger sources.json depuis GitHub API ──────────────────────────
       let _sourcesData    = [];  // tableau des sources

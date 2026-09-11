@@ -36,14 +36,25 @@ const PAUSE_MS   = 2500;                      // pause entre deux appels Mistral
 const MAX_INLINE_IMAGES = 3;                  // illustrations proposées à Mistral par article
 
 // $ par million de tokens — tarif public Mistral Small au 11/09/2026 (docs.mistral.ai/inference/pricing)
-// Si tu changes de modèle ou que Mistral ajuste ses prix, redéfinis ces deux variables
+// Si tu changes de modèle ou que Mistral ajuste ses prix, redéfinis ces variables
 // dans Settings → Secrets and variables → Actions → onglet Variables (pas Secrets, ce n'est pas sensible).
-const PRICE_IN  = parseFloat(process.env.MISTRAL_PRICE_INPUT_PER_1M)  || 0.15;
-const PRICE_OUT = parseFloat(process.env.MISTRAL_PRICE_OUTPUT_PER_1M) || 0.60;
-const costOf = (promptTok, compTok) => (promptTok / 1e6) * PRICE_IN + (compTok / 1e6) * PRICE_OUT;
+const PRICE_IN     = parseFloat(process.env.MISTRAL_PRICE_INPUT_PER_1M)  || 0.15;
+const PRICE_CACHED = parseFloat(process.env.MISTRAL_PRICE_CACHED_PER_1M) || 0.015;
+const PRICE_OUT    = parseFloat(process.env.MISTRAL_PRICE_OUTPUT_PER_1M) || 0.60;
+const CACHE_KEY    = 'cellia-lab-veille-ia';  // clé stable : augmente les chances de cache hit sur le system prompt
+const costOf = (promptTok, cachedTok, compTok) =>
+  ((promptTok - cachedTok) / 1e6) * PRICE_IN + (cachedTok / 1e6) * PRICE_CACHED + (compTok / 1e6) * PRICE_OUT;
 
-// Compteurs de tokens, alimentés par callMistral() à chaque réponse reçue
-const runStats = { calls: 0, retries429: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0 };
+// Compteurs de tokens, alimentés par callMistral() à chaque réponse reçue.
+// byCategory/bySource : détail du run courant uniquement (pas conservé dans l'historique, pour rester léger).
+const runStats = {
+  calls: 0, retries429: 0, promptTokens: 0, cachedTokens: 0, completionTokens: 0, totalTokens: 0,
+  byCategory: {}, bySource: {},
+};
+function addBreakdown(bucket, key, tokens, cost) {
+  const b = bucket[key] || (bucket[key] = { calls: 0, totalTokens: 0, estCostUSD: 0 });
+  b.calls++; b.totalTokens += tokens; b.estCostUSD += cost;
+}
 
 const CATEGORIES = ['avancees', 'labos', 'risques', 'societe'];
 const TONES      = ['avancee', 'enjeu', 'alerte'];
@@ -476,16 +487,19 @@ async function callMistral(userPrompt) {
         temperature:     0.4,
         max_tokens:      3500,
         response_format: { type: 'json_object' },
+        prompt_cache_key: CACHE_KEY,
       }),
     }, 90000);
     if (res.status === 401 || res.status === 403) throw new FatalApiError(`clé Mistral refusée (HTTP ${res.status})`);
     if (res.status === 429) { runStats.retries429++; warn(`  Mistral 429 — pause ${attempt * 15}s`); await sleep(attempt * 15000); continue; }
     if (!res.ok) throw new Error(`HTTP ${res.status} ${(await res.text()).slice(0, 160)}`);
     const data  = await res.json();
-    const usage = data.usage || null;   // { prompt_tokens, completion_tokens, total_tokens } — compte exact renvoyé par Mistral
+    const usage = data.usage || null;   // { prompt_tokens, completion_tokens, total_tokens, prompt_tokens_details.cached_tokens } — compte exact renvoyé par Mistral
     if (usage) {
       runStats.calls++;
+      const cached = usage.prompt_tokens_details?.cached_tokens || 0;
       runStats.promptTokens     += usage.prompt_tokens     || 0;
+      runStats.cachedTokens     += cached;
       runStats.completionTokens += usage.completion_tokens || 0;
       runStats.totalTokens      += usage.total_tokens || ((usage.prompt_tokens || 0) + (usage.completion_tokens || 0));
     }
@@ -724,6 +738,12 @@ async function main() {
       await sleep(PAUSE_MS);
     }
     const tk = usage ? ` · ${usage.total_tokens ?? '?'} tokens` : '';
+    if (usage) {
+      const cached = usage.prompt_tokens_details?.cached_tokens || 0;
+      const cost   = costOf(usage.prompt_tokens || 0, cached, usage.completion_tokens || 0);
+      addBreakdown(runStats.byCategory, cand.category, usage.total_tokens || 0, cost);
+      addBreakdown(runStats.bySource,   cand.source,   usage.total_tokens || 0, cost);
+    }
 
     if (result.article) {
       fresh.push(result.article);
@@ -758,34 +778,39 @@ async function main() {
   const seenPruned = Object.fromEntries(Object.entries(seen).filter(([, d]) => new Date(d).getTime() > seenCutoff));
   await fs.writeFile(SEEN_PATH, JSON.stringify(seenPruned), 'utf-8');
 
-  // Historique des tokens : run courant + cumul depuis toujours, gardé compact
-  // (le détail par article reste dans ce journal, pas dans le fichier publié)
+  // Historique des tokens : run courant + cumul depuis toujours, gardé compact.
+  // byCategory/bySource : uniquement pour le run courant (pas conservés dans l'historique).
+  // baseline : jamais écrit ici, seulement préservé — réglé depuis le panneau admin.
   const usagePath = path.join(DIST, 'usage.json');
-  const usageData = await readJSON(usagePath, { history: [], lifetime: null });
-  const runCost   = costOf(runStats.promptTokens, runStats.completionTokens);
+  const usageData = await readJSON(usagePath, { history: [], lifetime: null, baseline: null });
+  const runCost   = costOf(runStats.promptTokens, runStats.cachedTokens, runStats.completionTokens);
+  const round4    = o => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, { ...v, estCostUSD: Number(v.estCostUSD.toFixed(4)) }]));
   const entry = {
     date: generated_at, model: MODEL,
     articles_published: fresh.length, articles_rejected: rejected,
     calls: runStats.calls, retries429: runStats.retries429,
-    promptTokens: runStats.promptTokens, completionTokens: runStats.completionTokens, totalTokens: runStats.totalTokens,
+    promptTokens: runStats.promptTokens, cachedTokens: runStats.cachedTokens,
+    completionTokens: runStats.completionTokens, totalTokens: runStats.totalTokens,
     estCostUSD: Number(runCost.toFixed(4)),
+    byCategory: round4(runStats.byCategory), bySource: round4(runStats.bySource),
   };
   const USAGE_HISTORY_MAX = 120;   // ~2 mois à 2 runs/jour
   const history = [entry, ...usageData.history].slice(0, USAGE_HISTORY_MAX);
-  const life = usageData.lifetime || { since: generated_at, runs: 0, calls: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, estCostUSD: 0 };
+  const life = usageData.lifetime || { since: generated_at, runs: 0, calls: 0, promptTokens: 0, cachedTokens: 0, completionTokens: 0, totalTokens: 0, estCostUSD: 0 };
   life.runs++; life.calls += runStats.calls;
-  life.promptTokens += runStats.promptTokens; life.completionTokens += runStats.completionTokens; life.totalTokens += runStats.totalTokens;
+  life.promptTokens += runStats.promptTokens; life.cachedTokens = (life.cachedTokens || 0) + runStats.cachedTokens;
+  life.completionTokens += runStats.completionTokens; life.totalTokens += runStats.totalTokens;
   life.estCostUSD = Number((life.estCostUSD + runCost).toFixed(4));
   await fs.writeFile(usagePath, JSON.stringify({
-    history, lifetime: life,
-    pricing: { model: MODEL, inputPer1M: PRICE_IN, outputPer1M: PRICE_OUT },
+    history, lifetime: life, baseline: usageData.baseline || null,
+    pricing: { model: MODEL, inputPer1M: PRICE_IN, cachedPer1M: PRICE_CACHED, outputPer1M: PRICE_OUT },
   }), 'utf-8');
 
   console.log(`\n${c.bold}━━━ Terminé ━━━${c.reset}`);
   ok(`${fresh.length} nouveaux · ${rejected} écartés · ${all.length} au total · ${runStats.calls} appels Mistral (${runStats.retries429} attente(s) 429)`);
   const tally = k => fresh.filter(a => a.tone === k).length;
   ok(`Tonalité du run : ${tally('avancee')} avancée · ${tally('enjeu')} enjeu · ${tally('alerte')} alerte`);
-  ok(`Tokens : ${runStats.promptTokens.toLocaleString('fr-FR')} entrée + ${runStats.completionTokens.toLocaleString('fr-FR')} sortie = ${runStats.totalTokens.toLocaleString('fr-FR')} total`);
+  ok(`Tokens : ${runStats.promptTokens.toLocaleString('fr-FR')} entrée (dont ${runStats.cachedTokens.toLocaleString('fr-FR')} en cache) + ${runStats.completionTokens.toLocaleString('fr-FR')} sortie = ${runStats.totalTokens.toLocaleString('fr-FR')} total`);
   ok(`Coût estimé du run : ${runCost.toFixed(4)} $ · cumul depuis le début : ${life.estCostUSD.toFixed(2)} $ sur ${life.runs} runs`);
 }
 
