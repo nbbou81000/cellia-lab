@@ -1,0 +1,975 @@
+/* prefs.js — CelliA Lab Preferences Panel (IIFE) — dérivé de CelliA */
+(function () {
+  'use strict';
+
+  // ── Polices ──────────────────────────────────────────────────────────────
+  const CELLIA_FONTS = [
+    // Sans-serif modernes
+    { id: 'editorial',   label: 'Bricolage',       family: "'Bricolage Grotesque', sans-serif",    google: 'Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800' },
+    { id: 'inter',       label: 'Inter',            family: "'Inter', sans-serif",                  google: 'Inter:wght@300;400;500;600;700' },
+    { id: 'geist',       label: 'Geist',            family: "'Geist', sans-serif",                  google: 'Geist:wght@300;400;500;700' },
+    { id: 'space',       label: 'Space Grotesk',    family: "'Space Grotesk', sans-serif",          google: 'Space+Grotesk:wght@300;400;500;600;700' },
+    { id: 'jakarta',     label: 'Plus Jakarta',     family: "'Plus Jakarta Sans', sans-serif",      google: 'Plus+Jakarta+Sans:wght@300;400;500;600;700;800' },
+    { id: 'onest',       label: 'Onest',            family: "'Onest', sans-serif",                  google: 'Onest:wght@300;400;500;600;700;800' },
+    { id: 'outfit',      label: 'Outfit',           family: "'Outfit', sans-serif",                 google: 'Outfit:wght@300;400;500;600;700' },
+    { id: 'syne',        label: 'Syne',             family: "'Syne', sans-serif",                   google: 'Syne:wght@400;500;600;700;800' },
+    { id: 'ibmplex',     label: 'IBM Plex Sans',    family: "'IBM Plex Sans', sans-serif",          google: 'IBM+Plex+Sans:wght@300;400;500;600;700' },
+    { id: 'nunito',      label: 'Nunito',           family: "'Nunito', sans-serif",                 google: 'Nunito:wght@300;400;500;600;700;800' },
+    { id: 'claude',      label: 'DM Sans',          family: "'DM Sans', sans-serif",                google: 'DM+Sans:ital,wght@0,300;0,400;0,600;0,700;1,400' },
+    { id: 'system',      label: 'Système',          family: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", system: true },
+    // Serif
+    { id: 'classique',   label: 'Lora',             family: "'Lora', serif",                        google: 'Lora:ital,wght@0,400;0,600;1,400' },
+    { id: 'raffinee',    label: 'Playfair',         family: "'Playfair Display', serif",            google: 'Playfair+Display:ital,wght@0,400;0,700;1,400' },
+    { id: 'fraunces',    label: 'Fraunces',         family: "'Fraunces', serif",                    google: 'Fraunces:opsz,wght@9..144,300;9..144,400;9..144,600;9..144,700' },
+    { id: 'sourceserif', label: 'Source Serif',     family: "'Source Serif 4', serif",              google: 'Source+Serif+4:wght@300;400;600;700' },
+    // Monospace
+    { id: 'technique',   label: 'JetBrains Mono',  family: "'JetBrains Mono', monospace",          google: 'JetBrains+Mono:wght@300;400;600' },
+    // Accessibilité
+    { id: 'dyslexic',    label: 'Atkinson',         family: "'Atkinson Hyperlegible', sans-serif",  google: 'Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400' },
+  ];
+
+  // ── Couleurs de fond ──────────────────────────────────────────────────────
+  const CELLIA_BGCOLORS = [
+    // ── Tons sombres ────────────────────────────────────────────────────────
+    { id: 'default',      label: 'Défaut',      dark: '#1a1c22', light: '#f4f4f0' },
+    { id: 'noir',         label: 'Noir',        dark: '#0a0a0a', light: '#e8e8e3' },
+    { id: 'charbon',      label: 'Charbon',     dark: '#111111', light: '#e2e2df' },
+    { id: 'encre',        label: 'Encre',       dark: '#0a0a0f', light: '#dde0ec' },
+    { id: 'slate',        label: 'Slate',       dark: '#0f172a', light: '#e8edf8' },
+    { id: 'minuit',       label: 'Minuit',      dark: '#0d0d1f', light: '#e8e8f5' },
+    { id: 'profond',      label: 'Profond',     dark: '#0a0f1a', light: '#e4eaf6' },
+    { id: 'abyssal',      label: 'Abyssal',     dark: '#05080f', light: '#dce3f2' },
+    { id: 'petrole',      label: 'Pétrole',     dark: '#071218', light: '#daeaf0' },
+    { id: 'sequoia',      label: 'Séquoia',     dark: '#0a120a', light: '#e0f0e0' },
+    { id: 'foret',        label: 'Forêt',       dark: '#111a13', light: '#eef5ef' },
+    { id: 'prune',        label: 'Prune',       dark: '#120a1a', light: '#ede8f5' },
+    { id: 'volcanique',   label: 'Volcanique',  dark: '#130808', light: '#f5e8e8' },
+    { id: 'acajou',       label: 'Acajou',      dark: '#150a05', light: '#f5ede6' },
+    { id: 'chaud',        label: 'Chaud',       dark: '#1c1814', light: '#faf6ee' },
+    // ── Tons clairs ─────────────────────────────────────────────────────────
+    { id: 'ivoire',       label: 'Ivoire',      dark: '#18161a', light: '#fffef7' },
+    { id: 'lin',          label: 'Lin',         dark: '#1a1714', light: '#f5f0e8' },
+    { id: 'sable',        label: 'Sable',       dark: '#1a1810', light: '#f8f4ec' },
+    { id: 'peche',        label: 'Pêche',       dark: '#1a1210', light: '#fdf0ea' },
+    { id: 'brume',        label: 'Brume',       dark: '#101418', light: '#f0f4f8' },
+    { id: 'lavande',      label: 'Lavande',     dark: '#110f1a', light: '#f0eef8' },
+    { id: 'pistache',     label: 'Pistache',    dark: '#0f1510', light: '#eef5ee' },
+    { id: 'aqua',         label: 'Aqua',        dark: '#0a1518', light: '#eef6f5' },
+    { id: 'nuit',         label: 'Nuit',        dark: '#181828', light: '#ededfd' },
+  ];
+
+  const CELLIA_BGANIMATIONS = [
+    { id: 'none',       label: 'Aucun'       },
+    { id: 'particles',  label: 'Particules'  },
+    { id: 'aurora',     label: 'Aurore'      },
+    { id: 'stars',      label: 'Étoiles'     },
+    { id: 'grid',       label: 'Grille'      },
+  ];
+
+  // ── Tailles de texte ──────────────────────────────────────────────────────
+  const CELLIA_SIZES = [
+    { id: 'small',  label: 'Aa',  title: '13px', summary: '11.5px', meta: '10px'  },
+    { id: 'normal', label: 'A',   title: '15px', summary: '13px',   meta: '11px'  },
+    { id: 'large',  label: 'A+',  title: '17px', summary: '14px',   meta: '12px'  },
+    { id: 'xlarge', label: 'A++', title: '19px', summary: '15.5px', meta: '13px'  },
+  ];
+
+  // ── Conversions sliders ───────────────────────────────────────────────────
+  const lsToEm  = v => v === 0 ? 'normal' : (v / 100).toFixed(2) + 'em';
+  const lhToVal = v => (1.40 + v * 0.05).toFixed(2);
+  const colToPx = v => (780 - v * 30) + 'px';
+
+  // ── Interpolation couleurs (pour luminosité) ──────────────────────────────
+  function hexToRgb(h) {
+    return [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)];
+  }
+  function rgbToHex(r,g,b) {
+    return '#' + [r,g,b].map(x => Math.round(Math.max(0,Math.min(255,x))).toString(16).padStart(2,'0')).join('');
+  }
+  function lerp(c1, c2, t) {
+    const [r1,g1,b1] = hexToRgb(c1), [r2,g2,b2] = hexToRgb(c2);
+    return rgbToHex(r1+(r2-r1)*t, g1+(g2-g1)*t, b1+(b2-b1)*t);
+  }
+  // Stops de luminosité : 0=sombre, 65=défaut, 100=lumineux
+  function brightnessColors(val, theme) {
+    const t = val / 100;
+    if (theme === 'dark') {
+      const t65 = Math.min(1, val / 65);
+      const t35 = Math.max(0, (val - 65) / 35);
+      const hi   = val <= 65 ? lerp('#404858', '#f0f2f8', t65) : lerp('#f0f2f8', '#ffffff', t35);
+      const body = val <= 65 ? lerp('#2a3245', '#94a3b8', t65) : lerp('#94a3b8', '#d0dcf4', t35);
+      return { hi, body };
+    } else {
+      const t65 = Math.min(1, val / 65);
+      const t35 = Math.max(0, (val - 65) / 35);
+      const hi   = val <= 65 ? lerp('#c0c8d4', '#1a1c22', t65) : lerp('#1a1c22', '#000000', t35);
+      const body = val <= 65 ? lerp('#d0d8e4', '#64748b', t65) : lerp('#64748b', '#2a3040', t35);
+      return { hi, body };
+    }
+  }
+
+  // ── État ─────────────────────────────────────────────────────────────────
+  let currentTheme      = localStorage.getItem('cellia-theme')      || 'dark';
+  let currentFont       = localStorage.getItem('cellia-font')       || 'editorial';
+  let currentBg         = localStorage.getItem('cellia-bg')         || 'default';
+  let currentBgAnim     = localStorage.getItem('cellia-bg-anim')    || 'none';
+  let currentSize       = localStorage.getItem('cellia-size')       || 'normal';
+  let currentBrightness = parseInt(localStorage.getItem('cellia-brightness') ?? '65', 10);
+  let currentGlass    = parseInt(localStorage.getItem('cellia-glass')    ?? '0', 10);
+  let currentProgress = localStorage.getItem('cellia-progress') || 'none';
+  let currentLS    = parseInt(localStorage.getItem('cellia-ls')  ?? '0',  10);
+  let currentLH    = parseInt(localStorage.getItem('cellia-lh')  ?? '7',  10);
+  let currentCol   = parseInt(localStorage.getItem('cellia-col') ?? '0',  10);
+  let currentCream = localStorage.getItem('cellia-cream') === 'true';
+
+  // ── Système d'animation de fond ───────────────────────────────────────────
+  let _animCanvas = null, _animRAF = null, _animParticles = [];
+
+  function stopBgAnimation() {
+    if (_animRAF) { cancelAnimationFrame(_animRAF); _animRAF = null; }
+    if (_animCanvas) { _animCanvas.remove(); _animCanvas = null; }
+    document.getElementById('cellia-aurora-style')?.remove();
+  }
+
+  function startBgAnimation(type) {
+    stopBgAnimation();
+    if (type === 'none') return;
+
+    if (type === 'aurora') {
+      const style = document.createElement('style');
+      style.id = 'cellia-aurora-style';
+      style.textContent = `
+        body::before, body::after {
+          content:''; position:fixed; inset:0; z-index:0; pointer-events:none; opacity:.25;
+        }
+        body::before {
+          background: radial-gradient(ellipse 60% 40% at 20% 30%, var(--red, #ff5a4e) 0%, transparent 70%);
+          animation: aurora-a 12s ease-in-out infinite alternate;
+        }
+        body::after {
+          background: radial-gradient(ellipse 50% 35% at 80% 70%, #6366f1 0%, transparent 70%);
+          animation: aurora-b 15s ease-in-out infinite alternate;
+        }
+        @keyframes aurora-a { 0%{transform:translate(0,0) scale(1)} 100%{transform:translate(5%,8%) scale(1.15)} }
+        @keyframes aurora-b { 0%{transform:translate(0,0) scale(1)} 100%{transform:translate(-8%,-5%) scale(1.2)} }
+      `;
+      document.head.appendChild(style);
+      return;
+    }
+
+    _animCanvas = document.createElement('canvas');
+    _animCanvas.style.cssText = 'position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.35';
+    document.body.prepend(_animCanvas);
+    const ctx = _animCanvas.getContext('2d');
+
+    function resize() {
+      _animCanvas.width  = window.innerWidth;
+      _animCanvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    if (type === 'particles') {
+      _animParticles = Array.from({length:50}, () => ({
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * window.innerHeight,
+        vx: (Math.random()-.5)*.25, vy: (Math.random()-.5)*.25,
+        r: Math.random()*1.5+.5, o: Math.random()*.4+.1
+      }));
+      let last = 0;
+      const tick = t => {
+        if (t - last < 33) { _animRAF = requestAnimationFrame(tick); return; }
+        last = t;
+        ctx.clearRect(0,0,_animCanvas.width,_animCanvas.height);
+        _animParticles.forEach(p => {
+          p.x += p.vx; p.y += p.vy;
+          if (p.x<0) p.x=_animCanvas.width; if (p.x>_animCanvas.width) p.x=0;
+          if (p.y<0) p.y=_animCanvas.height; if (p.y>_animCanvas.height) p.y=0;
+          ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+          ctx.fillStyle=`rgba(255,255,255,${p.o})`; ctx.fill();
+        });
+        _animParticles.forEach((a,i) => {
+          for (let j=i+1;j<_animParticles.length;j++) {
+            const b=_animParticles[j], dx=a.x-b.x, dy=a.y-b.y, d=Math.sqrt(dx*dx+dy*dy);
+            if (d<100) { ctx.beginPath(); ctx.strokeStyle=`rgba(255,255,255,${(1-d/100)*.1})`; ctx.lineWidth=.5; ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); }
+          }
+        });
+        _animRAF = requestAnimationFrame(tick);
+      };
+      _animRAF = requestAnimationFrame(tick);
+    }
+
+    if (type === 'stars') {
+      const stars = Array.from({length:120}, () => ({
+        x: Math.random()*window.innerWidth, y: Math.random()*window.innerHeight,
+        r: Math.random()*.8+.2, o: Math.random()*.5+.1,
+        twinkle: Math.random()*Math.PI*2
+      }));
+      let last=0;
+      const tick = t => {
+        if (t-last<50) { _animRAF=requestAnimationFrame(tick); return; }
+        last=t;
+        ctx.clearRect(0,0,_animCanvas.width,_animCanvas.height);
+        stars.forEach(s => {
+          s.twinkle+=.02;
+          const alpha = s.o*(0.6+0.4*Math.sin(s.twinkle));
+          ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+          ctx.fillStyle=`rgba(255,255,255,${alpha})`; ctx.fill();
+        });
+        _animRAF=requestAnimationFrame(tick);
+      };
+      _animRAF=requestAnimationFrame(tick);
+    }
+
+    if (type === 'grid') {
+      const draw = () => {
+        ctx.clearRect(0,0,_animCanvas.width,_animCanvas.height);
+        ctx.strokeStyle='rgba(255,255,255,.04)'; ctx.lineWidth=.5;
+        const sz=40;
+        for(let x=0;x<_animCanvas.width;x+=sz) { ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,_animCanvas.height);ctx.stroke(); }
+        for(let y=0;y<_animCanvas.height;y+=sz) { ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(_animCanvas.width,y);ctx.stroke(); }
+      };
+      draw();
+      window.addEventListener('resize', draw);
+    }
+  }
+
+  function applyBgAnim(animId, save=true) {
+    currentBgAnim = animId;
+    if (save) localStorage.setItem('cellia-bg-anim', animId);
+    startBgAnimation(animId);
+    updateButtons();
+  }
+
+  // ── Appliquer thème ───────────────────────────────────────────────────────
+  function applyTheme(theme) {
+    currentTheme = theme;
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('cellia-theme', theme);
+    if (currentCream) applyCream(true, false);
+    applyBg(currentBg, false);
+    applyBrightness(currentBrightness, false);
+    updateButtons();
+  }
+
+  // ── Appliquer fond ────────────────────────────────────────────────────────
+  function applyBg(bgId, save = true) {
+    currentBg = bgId;
+    if (save) localStorage.setItem('cellia-bg', bgId);
+    const bg  = CELLIA_BGCOLORS.find(b => b.id === bgId) || CELLIA_BGCOLORS[0];
+    const hex = currentTheme === 'dark' ? bg.dark : bg.light;
+    document.documentElement.style.setProperty('--bg', hex);
+    // Triple RGB pour glassmorphism (syntaxe : "R G B")
+    const [r,g,b] = hexToRgb(hex);
+    document.documentElement.style.setProperty('--bg-rgb', `${r} ${g} ${b}`);
+    if (currentGlass > 0) applyGlass(currentGlass, false);
+    updateButtons();
+  }
+
+  // ── Glassmorphisme ────────────────────────────────────────────────────────
+  function applyGlass(val, save = true) {
+    currentGlass = val;
+    if (save) localStorage.setItem('cellia-glass', val);
+    const t = val / 100;
+    const el = document.documentElement;
+    el.classList.toggle('glass-active', val > 0);
+    el.style.setProperty('--cellia-g-alpha',  (0.88 - t * 0.86).toFixed(3));
+    el.style.setProperty('--cellia-g-blur',   `${Math.round(t * 40)}px`);
+    el.style.setProperty('--cellia-g-sat',    (1 + t * 0.9).toFixed(2));
+    el.style.setProperty('--cellia-g-bright', (1 + t * 0.06).toFixed(3));
+    el.style.setProperty('--cellia-g-bd',     (0.05 + t * 0.28).toFixed(3));
+    el.style.setProperty('--cellia-g-inner',  (t * 0.35).toFixed(3));
+    const glassSlider = document.getElementById('cp-glass-slider');
+    const glassLabel  = document.getElementById('cp-glass-label');
+    if (glassSlider) glassSlider.value = val;
+    if (glassLabel)  glassLabel.textContent = val === 0 ? 'Désactivé' : val < 30 ? 'Givré' : val < 60 ? 'Verre' : val < 85 ? 'Cristal' : 'Verre parfait';
+  }
+
+  // ── Barre de progression de lecture ───────────────────────────────────────
+  const PROGRESS_LABELS = { none:'Aucune', slim:'Fil de soie', gradient:'Arc-en-ciel', cursor:'Comète', dots:'Constellation', circle:'Sphère', ambient:'Lueur ambiante' };
+  function applyProgress(styleId, save = true) {
+    currentProgress = styleId;
+    if (save) localStorage.setItem('cellia-progress', styleId);
+    updateButtons();
+  }
+
+  // ── Appliquer taille texte ────────────────────────────────────────────────
+  function applySize(sizeId) {
+    currentSize = sizeId;
+    localStorage.setItem('cellia-size', sizeId);
+    const s = CELLIA_SIZES.find(x => x.id === sizeId) || CELLIA_SIZES[1];
+    document.documentElement.style.setProperty('--cellia-title-size',   s.title);
+    document.documentElement.style.setProperty('--cellia-summary-size', s.summary);
+    document.documentElement.style.setProperty('--cellia-meta-size',    s.meta);
+    updateButtons();
+  }
+
+  // ── Appliquer luminosité texte ────────────────────────────────────────────
+  function applyBrightness(val, save = true) {
+    currentBrightness = val;
+    if (save) localStorage.setItem('cellia-brightness', val);
+    const { hi, body } = brightnessColors(val, currentTheme);
+    document.documentElement.style.setProperty('--text-hi',   hi);
+    document.documentElement.style.setProperty('--text-body', body);
+  }
+
+  // ── Appliquer police ──────────────────────────────────────────────────────
+  function applyFont(fontId) {
+    const font = CELLIA_FONTS.find(f => f.id === fontId);
+    if (!font) return;
+    currentFont = fontId;
+    loadFont(font);
+    document.documentElement.style.setProperty('--font-ui', font.family);
+    localStorage.setItem('cellia-font', fontId);
+    updateButtons();
+  }
+
+  function loadFont(font) {
+    if (font.system) return; // Police système : toujours disponible, rien à charger
+    const id = `gf-${font.id}`;
+    if (document.getElementById(id)) return;
+    const link = document.createElement('link');
+    link.id   = id; link.rel = 'stylesheet';
+    link.href = font.cdn
+      ? font.cdn
+      : `https://fonts.googleapis.com/css2?family=${font.google}&display=swap`;
+    document.head.appendChild(link);
+  }
+
+  // ── Appliquer espacement lettres ──────────────────────────────────────────
+  function applyLS(val) {
+    currentLS = val;
+    document.documentElement.style.setProperty('--cellia-ls', lsToEm(val));
+    localStorage.setItem('cellia-ls', val);
+  }
+
+  // ── Appliquer hauteur de ligne ────────────────────────────────────────────
+  function applyLH(val) {
+    currentLH = val;
+    document.documentElement.style.setProperty('--cellia-lh', lhToVal(val));
+    localStorage.setItem('cellia-lh', val);
+  }
+
+  // ── Appliquer largeur de colonne ──────────────────────────────────────────
+  function applyCol(val) {
+    currentCol = val;
+    document.documentElement.style.setProperty('--cellia-col', colToPx(val));
+    localStorage.setItem('cellia-col', val);
+  }
+
+  // ── Appliquer fond crème ──────────────────────────────────────────────────
+  function applyCream(enabled, save = true) {
+    currentCream = enabled;
+    if (save) localStorage.setItem('cellia-cream', enabled);
+    if (enabled) {
+      document.documentElement.setAttribute('data-cream', 'true');
+    } else {
+      document.documentElement.removeAttribute('data-cream');
+    }
+    updateButtons();
+  }
+
+  // ── CSS injecté ───────────────────────────────────────────────────────────
+  const panelCSS = `
+    /* ── Variables taille de texte ── */
+    .card-title   { font-size: var(--cellia-title-size, 15px) !important; }
+    .card-summary { font-size: var(--cellia-summary-size, 13px) !important; }
+    .card-source, .card-time, .card-read, .card-meta { font-size: var(--cellia-meta-size, 11px) !important; }
+    .article-body p, .article-body li { font-size: var(--cellia-title-size, 15px) !important; }
+
+    /* ── Fond crème ── */
+    [data-cream="true"][data-theme="light"] {
+      --bg:          #faf6ee;
+      --text-hi:     #18140e;
+      --text-body:   #4a4038;
+      --text-dim:    #8a7e70;
+      --glass-card:  rgba(255,250,240,0.55);
+      --glass-hover: rgba(255,248,232,0.82);
+      --glass-nav:   rgba(250,246,238,0.82);
+      --glass-panel: rgba(248,244,232,0.94);
+      --border-soft: rgba(160,140,100,0.22);
+      --shadow-md:   rgba(80,60,30,0.08);
+      --shadow-lg:   rgba(80,60,30,0.18);
+    }
+    [data-cream="true"][data-theme="dark"] {
+      --bg:          #1c1814;
+      --text-body:   #b8a898;
+      --glass-card:  rgba(255,240,210,0.04);
+      --glass-hover: rgba(255,240,210,0.08);
+      --glass-nav:   rgba(18,15,11,0.82);
+      --glass-panel: rgba(24,20,16,0.94);
+    }
+
+    /* ── Variables lecture appliquées aux deux pages ── */
+    .article-body,
+    .article-body p,
+    .article-body h2,
+    .article-body strong,
+    .article-summary {
+      letter-spacing: var(--cellia-ls, normal);
+    }
+    .article-body {
+      line-height: var(--cellia-lh, 1.75);
+    }
+    .article-wrap {
+      max-width: var(--cellia-col, 780px) !important;
+    }
+    .card-summary {
+      letter-spacing: var(--cellia-ls, normal);
+    }
+
+    /* ── Panneau ── */
+    #cp-panel {
+      position: fixed;
+      top: 68px; right: 12px;
+      z-index: 9999;
+      width: 292px;
+      background: var(--glass-panel);
+      backdrop-filter: blur(36px);
+      -webkit-backdrop-filter: blur(36px);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.22);
+      padding: 18px 18px 20px;
+      transform-origin: top right;
+      transform: scale(0.88) translateY(-8px);
+      opacity: 0;
+      pointer-events: none;
+      transition: transform 0.28s cubic-bezier(0.16,1,0.3,1), opacity 0.28s;
+      max-height: calc(100vh - 80px);
+      overflow-y: auto;
+    }
+    #cp-panel.open {
+      transform: scale(1) translateY(0);
+      opacity: 1;
+      pointer-events: all;
+    }
+    .cp-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .cp-title {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--text-dim);
+    }
+    .cp-close {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-dim); font-size: 17px; line-height: 1;
+      padding: 2px 6px; border-radius: 6px;
+      transition: color 0.15s, background 0.15s;
+    }
+    .cp-close:hover { background: var(--glass-hover); color: var(--text-hi); }
+    .cp-section-label {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.12em;
+      text-transform: uppercase; color: var(--text-dimmer);
+      margin-bottom: 8px;
+    }
+    .cp-section { margin-bottom: 14px; }
+    .cp-section:last-child { margin-bottom: 0; }
+    .cp-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .cp-btn {
+      background: var(--glass-card);
+      border: 1px solid var(--border-soft);
+      border-radius: 10px;
+      color: var(--text-body);
+      cursor: pointer;
+      font-family: var(--font-ui);
+      font-size: 13px; font-weight: 500;
+      padding: 9px 12px;
+      text-align: center;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .cp-btn:hover { background: var(--glass-hover); color: var(--text-hi); }
+    .cp-btn.active {
+      border-color: var(--red);
+      background: rgba(232,53,42,0.07);
+      color: var(--text-hi); font-weight: 600;
+    }
+    [data-theme="dark"] .cp-btn { color: #9aa4be; }
+    [data-theme="dark"] .cp-btn:hover { color: #f0f2f8; }
+    [data-theme="dark"] .cp-btn.active { background: rgba(255,68,68,0.09); }
+    .cp-font-btn {
+      display: flex; flex-direction: column; align-items: flex-start;
+      padding: 10px 12px; margin-bottom: 4px;
+    }
+    .cp-font-label { font-size: 14px; font-weight: 600; line-height: 1.3; }
+    .cp-font-sub   { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--text-dim); margin-top: 2px; }
+    .cp-divider    { border: none; border-top: 1px solid var(--border-soft); margin: 12px 0; }
+
+    /* ── Swatches de fond ── */
+    .cp-bg-grid {
+      display: flex; gap: 8px; flex-wrap: wrap;
+    }
+    .cp-bg-swatch {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      border: 2.5px solid transparent;
+      cursor: pointer;
+      transition: transform 0.15s, border-color 0.15s;
+      position: relative;
+      flex-shrink: 0;
+    }
+    .cp-bg-swatch:hover { transform: scale(1.12); }
+    .cp-bg-swatch.active { border-color: var(--red); }
+    .cp-bg-swatch.active::after {
+      content: '✓';
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700;
+      color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    }
+
+    /* ── Boutons taille ── */
+    .cp-size-btn {
+      font-weight: 700; letter-spacing: -0.03em; text-align: center;
+    }
+    .cp-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+
+    /* ── Slider luminosité ── */
+    .cp-bright-row {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .cp-bright-a1 { font-size: 11px; opacity: 0.4; flex-shrink: 0; }
+    .cp-bright-a2 { font-size: 17px; font-weight: 700; flex-shrink: 0; }
+    .cp-slider-row {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 10px;
+    }
+    .cp-slider-row:last-child { margin-bottom: 0; }
+    .cp-slider-label {
+      font-size: 11px; font-weight: 600; color: var(--text-dim);
+      width: 58px; flex-shrink: 0;
+    }
+    .cp-slider {
+      flex: 1;
+      -webkit-appearance: none; appearance: none;
+      height: 3px;
+      background: var(--border-soft);
+      border-radius: 2px;
+      outline: none; cursor: pointer;
+      border: none;
+    }
+    .cp-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: var(--red);
+      cursor: pointer;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+      transition: transform 0.15s;
+    }
+    .cp-slider::-webkit-slider-thumb:hover { transform: scale(1.15); }
+    .cp-slider::-moz-range-thumb {
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: var(--red);
+      cursor: pointer; border: none;
+    }
+    .cp-slider-val {
+      font-size: 10px; font-weight: 700; font-family: 'JetBrains Mono', monospace;
+      color: var(--text-dimmer); width: 28px; text-align: right; flex-shrink: 0;
+    }
+
+    /* ── Bouton crème ── */
+    .cp-cream-btn {
+      width: 100%; text-align: left;
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px;
+    }
+    .cp-cream-check {
+      width: 18px; height: 18px;
+      border-radius: 5px;
+      border: 1.5px solid var(--border-soft);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; flex-shrink: 0;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .cp-cream-btn.active .cp-cream-check {
+      background: var(--red); border-color: var(--red); color: #fff;
+    }
+    .cp-cream-desc { font-size: 11px; color: var(--text-dim); margin-top: 1px; }
+  `;
+
+  const style = document.createElement('style');
+  style.textContent = panelCSS;
+  document.head.appendChild(style);
+
+  // ── DOM du panneau ────────────────────────────────────────────────────────
+  const panel = document.createElement('div');
+  panel.id = 'cp-panel';
+  panel.setAttribute('role', 'dialog');
+  panel.setAttribute('aria-label', 'Préférences CelliA Lab');
+
+  panel.innerHTML = `
+    <div class="cp-header">
+      <span class="cp-title">Préférences</span>
+      <button class="cp-close" id="cp-close" aria-label="Fermer">✕</button>
+    </div>
+
+    <div class="cp-section">
+      <div class="cp-section-label">Apparence</div>
+      <div class="cp-grid-2">
+        <button class="cp-btn" data-theme-btn="light">☀ Clair</button>
+        <button class="cp-btn" data-theme-btn="dark">⏾ Sombre</button>
+      </div>
+      <button class="cp-btn cp-cream-btn" id="cp-quantum-btn" style="margin-top:8px;width:100%;border-color:rgba(62,207,142,.2)">
+        <span class="cp-cream-check" id="cp-quantum-check"></span>
+        <span>
+          ⬡ Thème Quantum
+          <div class="cp-cream-desc">Raycast × Supabase · Mono · Émeraude</div>
+        </span>
+      </button>
+      <button class="cp-btn cp-cream-btn" id="cp-halo-prism-btn" style="margin-top:6px;width:100%">
+        <span class="cp-cream-check" id="cp-halo-prism-check"></span>
+        <span>
+          ✦ Halo prisme
+          <div class="cp-cream-desc">Halo arc-en-ciel au survol des articles</div>
+        </span>
+      </button>
+      <button class="cp-btn cp-cream-btn" id="cp-halo-beam-btn" style="margin-top:6px;width:100%">
+        <span class="cp-cream-check" id="cp-halo-beam-check"></span>
+        <span>
+          ◉ Halo lumineux
+          <div class="cp-cream-desc">Point de lumière animé façon Gemini</div>
+        </span>
+      </button>
+      <button class="cp-btn cp-cream-btn" id="cp-wave-cards-btn" style="margin-top:6px;width:100%">
+        <span class="cp-cream-check" id="cp-wave-cards-check"></span>
+        <span>
+          〜 Titres animés
+          <div class="cp-cream-desc">Vague de couleur sur les titres des articles</div>
+        </span>
+      </button>
+    </div>
+
+    <hr class="cp-divider">
+
+    <div class="cp-section">
+      <div class="cp-section-label">Couleur de fond</div>
+      <div class="cp-bg-grid">
+        ${CELLIA_BGCOLORS.map(bg => `
+          <button class="cp-bg-swatch ${currentBg === bg.id ? 'active' : ''}"
+                  data-bg-btn="${bg.id}"
+                  style="background:${currentTheme === 'dark' ? bg.dark : bg.light}"
+                  title="${bg.label}"></button>
+        `).join('')}
+      </div>
+    </div>
+
+    <div class="cp-section" style="padding-top:0">
+      <div class="cp-section-label">Animation du fond</div>
+      <div class="cp-grid-2" style="gap:4px">
+        ${CELLIA_BGANIMATIONS.map(a => `
+          <button class="cp-btn ${currentBgAnim === a.id ? 'active' : ''}" data-anim-btn="${a.id}"
+                  style="font-size:11px;padding:6px 8px">${a.label}</button>
+        `).join('')}
+      </div>
+    </div>
+
+    <hr class="cp-divider">
+
+    <div class="cp-section">
+      <div class="cp-section-label">Effet de verre</div>
+      <div class="cp-slider-row">
+        <span style="font-size:13px;opacity:.4">○</span>
+        <input type="range" class="cp-slider" id="cp-glass-slider" min="0" max="100" step="5" value="${currentGlass}">
+        <span style="font-size:13px;opacity:.9">◉</span>
+      </div>
+      <div style="font-size:10px;color:var(--text-dimmer);text-align:center;margin-top:4px" id="cp-glass-label">
+        ${currentGlass === 0 ? 'Désactivé' : currentGlass < 30 ? 'Givré' : currentGlass < 60 ? 'Verre' : currentGlass < 85 ? 'Cristal' : 'Verre parfait'}
+      </div>
+    </div>
+
+    <hr class="cp-divider">
+
+    <div class="cp-section">
+      <div class="cp-section-label">Barre de lecture</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
+        ${['none','slim','gradient','cursor','dots','circle','ambient'].map(id => `
+          <button class="cp-btn ${currentProgress === id ? 'active' : ''}" data-progress-btn="${id}"
+                  style="font-size:10.5px;padding:6px 8px;text-align:left">
+            ${{ none:'— Aucune', slim:'Fil de soie', gradient:'Arc-en-ciel', cursor:'Comète', dots:'Constellation', circle:'Sphère', ambient:'Lueur ambiante' }[id]}
+          </button>`).join('')}
+      </div>
+    </div>
+
+    <hr class="cp-divider">
+
+    <div class="cp-section">
+      <div class="cp-section-label">Taille du texte</div>
+      <div class="cp-grid-4">
+        ${CELLIA_SIZES.map(s => `
+          <button class="cp-btn cp-size-btn" data-size-btn="${s.id}"
+                  style="font-size:${s.title === '13px' ? '12px' : s.title === '19px' ? '17px' : s.title}">
+            ${s.label}
+          </button>
+        `).join('')}
+      </div>
+    </div>
+
+    <hr class="cp-divider">
+
+    <div class="cp-section">
+      <div class="cp-section-label">Luminosité du texte</div>
+      <div class="cp-bright-row">
+        <span class="cp-bright-a1">A</span>
+        <input type="range" class="cp-slider" id="cp-br-slider"
+               min="0" max="100" step="5" value="${currentBrightness}">
+        <span class="cp-bright-a2">A</span>
+      </div>
+    </div>
+
+    <hr class="cp-divider">
+
+    <div class="cp-section">
+      <div class="cp-section-label">Typographie</div>
+      ${CELLIA_FONTS.map(f => `
+        <button class="cp-btn cp-font-btn" data-font-btn="${f.id}" style="font-family:${f.family};width:100%">
+          <span class="cp-font-label">${f.label}</span>
+          <span class="cp-font-sub">${f.id}</span>
+        </button>
+      `).join('')}
+    </div>
+
+    <hr class="cp-divider">
+
+    <div class="cp-section">
+      <div class="cp-section-label">Espacement</div>
+
+      <div class="cp-slider-row">
+        <span class="cp-slider-label">Lettres</span>
+        <input type="range" class="cp-slider" id="cp-ls-slider"
+               min="0" max="12" step="1" value="${currentLS}">
+        <span class="cp-slider-val" id="cp-ls-val">${currentLS === 0 ? '—' : '+' + currentLS}</span>
+      </div>
+
+      <div class="cp-slider-row">
+        <span class="cp-slider-label">Lignes</span>
+        <input type="range" class="cp-slider" id="cp-lh-slider"
+               min="0" max="16" step="1" value="${currentLH}">
+        <span class="cp-slider-val" id="cp-lh-val">${lhToVal(currentLH)}</span>
+      </div>
+
+      <div class="cp-slider-row">
+        <span class="cp-slider-label">Colonne</span>
+        <input type="range" class="cp-slider" id="cp-col-slider"
+               min="0" max="10" step="1" value="${currentCol}">
+        <span class="cp-slider-val" id="cp-col-val">${colToPx(currentCol)}</span>
+      </div>
+    </div>
+
+    <hr class="cp-divider">
+
+    <div class="cp-section">
+      <div class="cp-section-label">Présentation</div>
+      <button class="cp-btn cp-cream-btn ${currentCream ? 'active' : ''}" id="cp-cream-btn">
+        <span class="cp-cream-check" id="cp-cream-check">${currentCream ? '✓' : ''}</span>
+        <span>
+          Fond crème
+          <div class="cp-cream-desc">Réduit la fatigue visuelle</div>
+        </span>
+      </button>
+    </div>
+  `;
+
+  document.body.appendChild(panel);
+
+  // ── Mise à jour visuels boutons ───────────────────────────────────────────
+  function updateButtons() {
+    panel.querySelectorAll('[data-theme-btn]').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.themeBtn === currentTheme);
+    });
+    panel.querySelectorAll('[data-font-btn]').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.fontBtn === currentFont);
+    });
+    panel.querySelectorAll('[data-bg-btn]').forEach(btn => {
+      const bg = CELLIA_BGCOLORS.find(b => b.id === btn.dataset.bgBtn);
+      btn.classList.toggle('active', btn.dataset.bgBtn === currentBg);
+      if (bg) btn.style.background = currentTheme === 'dark' ? bg.dark : bg.light;
+    });
+    panel.querySelectorAll('[data-anim-btn]').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.animBtn === currentBgAnim);
+    });
+    panel.querySelectorAll('[data-progress-btn]').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.progressBtn === currentProgress);
+    });
+    const creamBtn   = document.getElementById('cp-cream-btn');
+    const creamCheck = document.getElementById('cp-cream-check');
+    if (creamBtn)   creamBtn.classList.toggle('active', currentCream);
+    if (creamCheck) creamCheck.textContent = currentCream ? '✓' : '';
+  }
+
+  // ── Events thème ──────────────────────────────────────────────────────────
+  panel.querySelectorAll('[data-theme-btn]').forEach(btn => {
+    btn.addEventListener('click', () => applyTheme(btn.dataset.themeBtn));
+  });
+
+  // ── Events fond ───────────────────────────────────────────────────────────
+  panel.querySelectorAll('[data-bg-btn]').forEach(btn => {
+    btn.addEventListener('click', () => applyBg(btn.dataset.bgBtn));
+  });
+
+  panel.querySelectorAll('[data-anim-btn]').forEach(btn => {
+    btn.addEventListener('click', () => applyBgAnim(btn.dataset.animBtn));
+  });
+
+  // ── Event glassmorphisme ─────────────────────────────────────────────────
+  const glassSlider = document.getElementById('cp-glass-slider');
+  if (glassSlider) glassSlider.addEventListener('input', e => applyGlass(parseInt(e.target.value)));
+
+  // ── Events barre de lecture ───────────────────────────────────────────────
+  panel.querySelectorAll('[data-progress-btn]').forEach(btn => {
+    btn.addEventListener('click', () => applyProgress(btn.dataset.progressBtn));
+  });
+  panel.querySelectorAll('[data-size-btn]').forEach(btn => {
+    btn.addEventListener('click', () => applySize(btn.dataset.sizeBtn));
+  });
+
+  // ── Event luminosité ──────────────────────────────────────────────────────
+  const brSlider = document.getElementById('cp-br-slider');
+  if (brSlider) brSlider.addEventListener('input', e => applyBrightness(parseInt(e.target.value)));
+
+  // ── Events police ─────────────────────────────────────────────────────────
+  panel.querySelectorAll('[data-font-btn]').forEach(btn => {
+    btn.addEventListener('click', () => applyFont(btn.dataset.fontBtn));
+  });
+
+  // ── Events sliders ────────────────────────────────────────────────────────
+  const lsSlider  = document.getElementById('cp-ls-slider');
+  const lhSlider  = document.getElementById('cp-lh-slider');
+  const colSlider = document.getElementById('cp-col-slider');
+  const lsVal     = document.getElementById('cp-ls-val');
+  const lhVal     = document.getElementById('cp-lh-val');
+  const colVal    = document.getElementById('cp-col-val');
+
+  lsSlider.addEventListener('input', e => {
+    const v = parseInt(e.target.value);
+    lsVal.textContent = v === 0 ? '—' : '+' + v;
+    applyLS(v);
+  });
+
+  lhSlider.addEventListener('input', e => {
+    const v = parseInt(e.target.value);
+    lhVal.textContent = lhToVal(v);
+    applyLH(v);
+  });
+
+  colSlider.addEventListener('input', e => {
+    const v = parseInt(e.target.value);
+    colVal.textContent = colToPx(v);
+    applyCol(v);
+  });
+
+  // ── Event fond crème ──────────────────────────────────────────────────────
+  document.getElementById('cp-cream-btn').addEventListener('click', () => {
+    applyCream(!currentCream);
+  });
+
+  // ── Thème Quantum (Raycast × Supabase) ───────────────────────────────────
+  let quantumActive = localStorage.getItem('cellia-theme-quantum') !== 'false';
+
+  function loadQuantumFonts() {
+    if (document.getElementById('quantum-fonts')) return;
+    const link  = document.createElement('link');
+    link.id     = 'quantum-fonts';
+    link.rel    = 'stylesheet';
+    link.href   = 'https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&family=JetBrains+Mono:wght@400;500;600&display=swap';
+    document.head.appendChild(link);
+  }
+
+  function applyQuantum(state, save = true) {
+    quantumActive = state;
+    document.documentElement.classList.toggle('theme-quantum', state);
+    if (state) loadQuantumFonts();
+    const btn = document.getElementById('cp-quantum-btn');
+    const chk = document.getElementById('cp-quantum-check');
+    if (btn) btn.classList.toggle('active', state);
+    if (chk) chk.textContent = state ? '✓' : '';
+    if (save) localStorage.setItem('cellia-theme-quantum', state);
+  }
+
+  applyQuantum(quantumActive, false);
+  document.getElementById('cp-quantum-btn')?.addEventListener('click', () =>
+    applyQuantum(!quantumActive)
+  );
+  let waveCards = localStorage.getItem('cellia-wave-cards') === 'true';
+  function applyWaveCards(state, save = true) {
+    waveCards = state;
+    document.documentElement.classList.toggle('wave-cards', state);
+    const btn = document.getElementById('cp-wave-cards-btn');
+    const chk = document.getElementById('cp-wave-cards-check');
+    if (btn) btn.classList.toggle('active', state);
+    if (chk) chk.textContent = state ? '✓' : '';
+    if (save) localStorage.setItem('cellia-wave-cards', state);
+  }
+  applyWaveCards(waveCards, false);
+  document.getElementById('cp-wave-cards-btn')?.addEventListener('click', () =>
+    applyWaveCards(!waveCards)
+  );
+  let haloActive = localStorage.getItem('cellia-halo') || 'none';
+  if (haloActive === 'none' && localStorage.getItem('cellia-halo-prism') === 'true') haloActive = 'prism';
+
+  function applyHalo(mode, save = true) {
+    haloActive = mode;
+    document.documentElement.classList.remove('halo-prism', 'halo-beam');
+    if (mode === 'prism') document.documentElement.classList.add('halo-prism');
+    if (mode === 'beam')  document.documentElement.classList.add('halo-beam');
+    // Mettre à jour les boutons si le panneau est ouvert
+    const prismBtn  = document.getElementById('cp-halo-prism-btn');
+    const beamBtn   = document.getElementById('cp-halo-beam-btn');
+    const prismChk  = document.getElementById('cp-halo-prism-check');
+    const beamChk   = document.getElementById('cp-halo-beam-check');
+    if (prismBtn)  prismBtn.classList.toggle('active', mode === 'prism');
+    if (beamBtn)   beamBtn.classList.toggle('active',  mode === 'beam');
+    if (prismChk)  prismChk.textContent = mode === 'prism' ? '✓' : '';
+    if (beamChk)   beamChk.textContent  = mode === 'beam'  ? '✓' : '';
+    if (save) localStorage.setItem('cellia-halo', mode);
+  }
+
+  // Appliquer au chargement (classe HTML, pas les boutons pas encore visibles)
+  applyHalo(haloActive, false);
+
+  document.getElementById('cp-halo-prism-btn')?.addEventListener('click', () =>
+    applyHalo(haloActive === 'prism' ? 'none' : 'prism')
+  );
+  document.getElementById('cp-halo-beam-btn')?.addEventListener('click', () =>
+    applyHalo(haloActive === 'beam' ? 'none' : 'beam')
+  );
+
+  // ── Fermer ────────────────────────────────────────────────────────────────
+  document.getElementById('cp-close')?.addEventListener('click', closePanel);
+
+  let isOpen = false;
+  function openPanel()  { isOpen = true;  panel.classList.add('open'); }
+  function closePanel() { isOpen = false; panel.classList.remove('open'); }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const trigger = document.getElementById('cp-trigger');
+    if (trigger) trigger.addEventListener('click', e => {
+      e.stopPropagation();
+      isOpen ? closePanel() : openPanel();
+    });
+  });
+
+  document.addEventListener('click', e => {
+    if (isOpen && !panel.contains(e.target) && e.target.id !== 'cp-trigger') {
+      closePanel();
+    }
+  });
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+  applyTheme(currentTheme);
+  applyGlass(currentGlass, false);
+  applyProgress(currentProgress, false);
+  applyFont(currentFont);
+  applyBg(currentBg, false);
+  applyBgAnim(currentBgAnim, false);
+  applySize(currentSize);
+  applyBrightness(currentBrightness, false);
+  applyLS(currentLS);
+  applyLH(currentLH);
+  applyCol(currentCol);
+  if (currentCream) applyCream(true, false);
+
+  loadFont(CELLIA_FONTS[0]); // Précharger Bricolage Grotesque
+})();
